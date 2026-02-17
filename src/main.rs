@@ -1,5 +1,9 @@
-use std::io::{Write, stdin, stdout};
+use std::{
+    io::{Write, stdin, stdout},
+    vec,
+};
 
+#[derive(Clone)]
 struct Task {
     name: String,
     completed: bool,
@@ -15,6 +19,14 @@ impl Todo {
     }
 
     fn add_todo(&mut self, name: String) {
+        // firstly check if the same name already exists
+        for task in &self.tasks {
+            if task.name == name {
+                print!("Task with name {} already exists!", name);
+                return;
+            }
+        }
+
         self.tasks.push(Task {
             name: name.clone(),
             completed: false,
@@ -42,18 +54,47 @@ impl Todo {
     }
 
     fn delete(&mut self, name: String) {
-        println!("Deleted {}", name);
+        let total_before = self.tasks.len();
+        self.tasks = self
+            .tasks
+            .iter()
+            .filter(|&task| task.name != name)
+            .cloned()
+            .collect();
+        let total_after = self.tasks.len();
+        if total_after < total_before {
+            println!("Deleted {}", name);
+        } else {
+            println!("Cannot found {}", name);
+        }
     }
 
     fn toggle(&mut self, name: String) {
-        println!("Toggled {}", name);
+        for task in &mut self.tasks {
+            if task.name == name {
+                task.completed = !task.completed;
+                println!("Toggled {}", name);
+                return;
+            }
+        }
+        println!("There is no task with name {}", name);
     }
 
     fn clear(&mut self) {
-        println!("All completed tasks has been cleared!");
+        let total_before = self.tasks.len();
+        self.tasks = self
+            .tasks
+            .iter()
+            .filter(|&task| task.completed != true)
+            .cloned()
+            .collect();
+        let total_after = self.tasks.len();
+        let diff = total_before - total_after;
+        println!("Cleared {} tasks", diff);
     }
 
     fn reset(&mut self) {
+        self.tasks = vec![];
         println!("All tasks has been deleted");
     }
 }
