@@ -1,7 +1,4 @@
-use std::{
-    io::{Write, stdin, stdout},
-    vec,
-};
+use std::io::{stdin, stdout, Write};
 
 #[derive(Clone)]
 struct Task {
@@ -9,93 +6,80 @@ struct Task {
     completed: bool,
 }
 
+#[derive(Clone, Default)]
 struct Todo {
     tasks: Vec<Task>,
 }
 
 impl Todo {
     pub fn new() -> Self {
-        Self { tasks: vec![] }
+        Self::default()
     }
 
     fn add_todo(&mut self, name: String) {
         // firstly check if the same name already exists
-        for task in &self.tasks {
-            if task.name == name {
-                print!("Task with name {} already exists!", name);
-                return;
-            }
+        if self.tasks.iter().any(|task| task.name == name) {
+            println!("Task with name '{}' already exists!", name);
+            return;
         }
 
+        let task_name = name.clone();
         self.tasks.push(Task {
-            name: name.clone(),
+            name,
             completed: false,
         });
-        println!("Created a new task with name: {}", name)
+        println!("Created a new task with name: {}", task_name)
     }
 
-    #[allow(dead_code)]
-    fn get_status(&mut self, name: String) -> Option<bool> {
-        for task in &self.tasks {
-            let task_name = task.name.clone();
-            if task_name == name {
-                return Some(task.completed);
-            }
-        }
-        None
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn get_status(&self, name: &str) -> Option<bool> {
+        self.tasks
+            .iter()
+            .find(|task| task.name == name)
+            .map(|task| task.completed)
     }
 
     fn print_list(&self) {
         let total_tasks = self.tasks.len();
-        println!("Found {} tasks", total_tasks);
+        println!("Found {} task(s)", total_tasks);
         for task in &self.tasks {
-            println!("{} status: {}", &task.name, &task.completed)
+            let status = if task.completed { "✓" } else { "✗" };
+            println!("[{}] {}", status, task.name)
         }
     }
 
-    fn delete(&mut self, name: String) {
+    fn delete(&mut self, name: &str) {
         let total_before = self.tasks.len();
-        self.tasks = self
-            .tasks
-            .iter()
-            .filter(|&task| task.name != name)
-            .cloned()
-            .collect();
+        self.tasks.retain(|task| task.name != name);
         let total_after = self.tasks.len();
         if total_after < total_before {
-            println!("Deleted {}", name);
+            println!("Deleted '{}'", name);
         } else {
-            println!("Cannot found {}", name);
+            println!("Cannot find task '{}'", name);
         }
     }
 
-    fn toggle(&mut self, name: String) {
-        for task in &mut self.tasks {
-            if task.name == name {
-                task.completed = !task.completed;
-                println!("Toggled {}", name);
-                return;
-            }
+    fn toggle(&mut self, name: &str) {
+        if let Some(task) = self.tasks.iter_mut().find(|task| task.name == name) {
+            task.completed = !task.completed;
+            let status = if task.completed { "completed" } else { "incomplete" };
+            println!("Marked '{}' as {}", name, status);
+        } else {
+            println!("Cannot find task '{}'", name);
         }
-        println!("There is no task with name {}", name);
     }
 
     fn clear(&mut self) {
         let total_before = self.tasks.len();
-        self.tasks = self
-            .tasks
-            .iter()
-            .filter(|&task| task.completed != true)
-            .cloned()
-            .collect();
+        self.tasks.retain(|task| !task.completed);
         let total_after = self.tasks.len();
         let diff = total_before - total_after;
-        println!("Cleared {} tasks", diff);
+        println!("Cleared {} completed task(s)", diff);
     }
 
     fn reset(&mut self) {
-        self.tasks = vec![];
-        println!("All tasks has been deleted");
+        self.tasks.clear();
+        println!("All tasks have been deleted");
     }
 }
 
@@ -117,7 +101,7 @@ fn get_input() -> Input {
         s.pop();
     }
     // get the first space to divide as command and arg
-    match s.find(" ") {
+    match s.find(' ') {
         None => Input {
             command: s,
             arg: "".to_string(),
@@ -147,6 +131,7 @@ Welcome to Rust TODO, run these commands
 - reset: Clear all tasks
 - remove: Remove a task
     example: remove learn rust
+- help: Show available commands
 - exit: Exit the app
     "#
     );
@@ -155,25 +140,123 @@ Welcome to Rust TODO, run these commands
         print!("# ");
         let s = get_input();
 
-        if s.command == "new" {
-            if s.arg == "" {
-                println!("Missing todo name!")
-            } else {
-                todo.add_todo(s.arg);
+        match s.command.as_str() {
+            "new" => {
+                if s.arg.is_empty() {
+                    println!("Missing todo name!")
+                } else {
+                    todo.add_todo(s.arg);
+                }
             }
-        } else if s.command == "list" {
-            todo.print_list();
-        } else if s.command == "done" {
-            todo.toggle(s.arg);
-        } else if s.command == "delete" {
-            todo.delete(s.arg);
-        } else if s.command == "reset" {
-            todo.reset();
-        } else if s.command == "clear" {
-            todo.clear();
-        } else if s.command == "exit" {
-            println!("Terminating the Rust TODO");
-            break;
+            "list" => todo.print_list(),
+            "done" => todo.toggle(&s.arg),
+            "remove" | "delete" => todo.delete(&s.arg), // Support both for backward compatibility
+            "reset" => todo.reset(),
+            "clear" => todo.clear(),
+            "help" => {
+                println!(
+                    r#"
+Available commands:
+- new <name>: Create new task
+- list: See all current tasks
+- done <name>: Mark a task as completed
+- clear: Clear all completed tasks
+- reset: Clear all tasks
+- remove <name>: Remove a task
+- help: Show this help message
+- exit: Exit the app
+                    "#
+                );
+            }
+            "exit" => {
+                println!("Terminating the Rust TODO");
+                break;
+            }
+            "" => {} // ignore empty command
+            _ => println!(
+                "Unknown command: '{}'. Type 'help' to see available commands.",
+                s.command
+            ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_todo() {
+        let todo = Todo::new();
+        assert_eq!(todo.tasks.len(), 0);
+    }
+
+    #[test]
+    fn test_add_todo() {
+        let mut todo = Todo::new();
+        todo.add_todo("Test task".to_string());
+        assert_eq!(todo.tasks.len(), 1);
+        assert_eq!(todo.tasks[0].name, "Test task");
+        assert!(!todo.tasks[0].completed);
+    }
+
+    #[test]
+    fn test_add_duplicate_todo() {
+        let mut todo = Todo::new();
+        todo.add_todo("Test task".to_string());
+        todo.add_todo("Test task".to_string());
+        assert_eq!(todo.tasks.len(), 1); // Should not add duplicate
+    }
+
+    #[test]
+    fn test_get_status() {
+        let mut todo = Todo::new();
+        todo.add_todo("Test task".to_string());
+        assert_eq!(todo.get_status("Test task"), Some(false));
+        assert_eq!(todo.get_status("Non-existent"), None);
+    }
+
+    #[test]
+    fn test_toggle() {
+        let mut todo = Todo::new();
+        todo.add_todo("Test task".to_string());
+        todo.toggle("Test task");
+        assert!(todo.tasks[0].completed);
+        todo.toggle("Test task");
+        assert!(!todo.tasks[0].completed);
+    }
+
+    #[test]
+    fn test_delete() {
+        let mut todo = Todo::new();
+        todo.add_todo("Test task 1".to_string());
+        todo.add_todo("Test task 2".to_string());
+        assert_eq!(todo.tasks.len(), 2);
+        todo.delete("Test task 1");
+        assert_eq!(todo.tasks.len(), 1);
+        assert_eq!(todo.tasks[0].name, "Test task 2");
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut todo = Todo::new();
+        todo.add_todo("Task 1".to_string());
+        todo.add_todo("Task 2".to_string());
+        todo.add_todo("Task 3".to_string());
+        todo.toggle("Task 1");
+        todo.toggle("Task 3");
+        todo.clear();
+        assert_eq!(todo.tasks.len(), 1);
+        assert_eq!(todo.tasks[0].name, "Task 2");
+    }
+
+    #[test]
+    fn test_reset() {
+        let mut todo = Todo::new();
+        todo.add_todo("Task 1".to_string());
+        todo.add_todo("Task 2".to_string());
+        assert_eq!(todo.tasks.len(), 2);
+        todo.reset();
+        assert_eq!(todo.tasks.len(), 0);
     }
 }
