@@ -23,11 +23,12 @@ impl Todo {
             return;
         }
 
+        let task_name = name.clone();
         self.tasks.push(Task {
             name,
             completed: false,
         });
-        println!("Created a new task with name: {}", self.tasks.last().unwrap().name)
+        println!("Created a new task with name: {}", task_name)
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -130,6 +131,7 @@ Welcome to Rust TODO, run these commands
 - reset: Clear all tasks
 - remove: Remove a task
     example: remove learn rust
+- help: Show available commands
 - exit: Exit the app
     "#
     );
@@ -148,15 +150,33 @@ Welcome to Rust TODO, run these commands
             }
             "list" => todo.print_list(),
             "done" => todo.toggle(&s.arg),
-            "remove" => todo.delete(&s.arg),
+            "remove" | "delete" => todo.delete(&s.arg), // Support both for backward compatibility
             "reset" => todo.reset(),
             "clear" => todo.clear(),
+            "help" => {
+                println!(
+                    r#"
+Available commands:
+- new <name>: Create new task
+- list: See all current tasks
+- done <name>: Mark a task as completed
+- clear: Clear all completed tasks
+- reset: Clear all tasks
+- remove <name>: Remove a task
+- help: Show this help message
+- exit: Exit the app
+                    "#
+                );
+            }
             "exit" => {
                 println!("Terminating the Rust TODO");
                 break;
             }
             "" => {} // ignore empty command
-            _ => println!("Unknown command: '{}'. Type 'list' to see commands.", s.command),
+            _ => println!(
+                "Unknown command: '{}'. Type 'help' to see available commands.",
+                s.command
+            ),
         }
     }
 }
